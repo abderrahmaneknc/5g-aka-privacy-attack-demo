@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <title>5G-AKA Simulator</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <div class="container">
+      <h1 class="title">🔐 5G-AKA Security Simulator</h1>
+
+      <!-- NAVIGATION -->
+      <div class="nav">
+        <button onclick="showPage('auth')">📱 Authentication</button>
+        <button onclick="showPage('attack')">📡 Attack Simulation</button>
+        <button onclick="showPage('ue')">⚠️ UE Behavior</button>
+      </div>
+
+      <!-- AUTH PAGE -->
+      <div id="authPage" class="page">
+        <h2>📱 Authentication Flow</h2>
+        <button class="btn success" onclick="startFullFlow()">
+          Start Authentication
+        </button>
+        <pre id="authLog" class="log"></pre>
+      </div>
+
+      <!-- ATTACK PAGE -->
+      <div id="attackPage" class="page hidden">
+        <h2>📡 Fake gNB Attack</h2>
+
+        <div class="button-group">
+          <button class="btn danger" onclick="realisticAttack()">
+            Simulate Attack
+          </button>
+          <button class="btn" onclick="showAttackLogs()">Show Tracking</button>
+        </div>
+
+        <pre id="attackLog" class="log"></pre>
+      </div>
+
+      <!-- UE PAGE -->
+      <div id="uePage" class="page hidden">
+        <h2>⚠️ UE Behavior</h2>
+
+        <button class="btn" onclick="showUELogs()">Show UE Logs</button>
+
+        <pre id="ueLog" class="log"></pre>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

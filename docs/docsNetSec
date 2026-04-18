@@ -1,0 +1,345 @@
+# 📘 5G Authentication, Network Architecture, and Privacy Attacks  
+## Detailed Technical Report (5G-AKA Explained + System Overview)
+
+---
+
+# 1. Introduction
+
+Modern mobile networks rely on strong authentication mechanisms to ensure that only legitimate users can access network services. In **5G (Fifth Generation Mobile Network)** systems, this process is handled by a protocol called:
+
+> **5G Authentication and Key Agreement (5G-AKA)**
+
+This protocol ensures:
+- The user is genuine (SIM is valid)
+- The network is genuine (prevents fake towers)
+- Secure encryption keys are established
+
+However, even with strong cryptography, privacy weaknesses can still exist due to observable behavior in the protocol.
+
+---
+
+# 2. Main Components of a 5G Network
+
+A 5G system is divided into radio access and core network functions.
+
+## 2.1 gNB (Next Generation Node B)
+- The **base station (antenna tower)**.
+- Provides radio communication between the phone and the network.
+- Forwards messages to the core network.
+
+📌 Role:
+- Handles wireless communication only
+- Does NOT authenticate users
+
+---
+
+## 2.2 AMF (Access and Mobility Management Function)
+- Entry point of the 5G core network.
+- Manages:
+  - User registration
+  - Mobility (movement between towers)
+  - Session management
+
+📌 Role:
+- Routes authentication requests
+- Coordinates connection setup
+
+---
+
+## 2.3 AUSF (Authentication Server Function)
+- The authentication decision entity.
+- Executes the 5G-AKA protocol logic.
+
+📌 Role:
+- Verifies user responses
+- Confirms authentication success or failure
+
+---
+
+## 2.4 UDM (Unified Data Management)
+- Central subscriber database.
+
+Stores:
+- Subscriber identity (SUPI – Subscription Permanent Identifier)
+- Long-term secret key (K)
+- Subscription profile
+
+📌 Role:
+- Holds user identity data securely
+
+---
+
+## 2.5 ARPF (Authentication Credential Repository and Processing Function)
+- Cryptographic processing unit inside UDM.
+
+📌 Role:
+- Generates authentication data:
+  - RAND (Random challenge)
+  - AUTN (Authentication token)
+  - XRES* (Expected response)
+- Uses long-term key K
+
+---
+
+# 3. Important Identity Concepts
+
+## 3.1 IMSI (International Mobile Subscriber Identity)
+- The real permanent identity of the user in older systems (4G and earlier).
+
+---
+
+## 3.2 SUPI (Subscription Permanent Identifier)
+- The 5G equivalent of IMSI.
+- Never transmitted in clear form in 5G.
+
+---
+
+## 3.3 SUCI (Subscription Concealed Identifier)
+- Encrypted version of SUPI.
+- Sent over the radio instead of real identity.
+
+📌 Purpose:
+- Prevent attackers from directly reading user identity
+
+---
+
+# 4. Radio Communication in Mobile Networks
+
+Mobile communication happens over **radio waves (wireless electromagnetic signals)**.
+
+## Key properties:
+- Signals travel through air
+- Can be intercepted by anyone nearby
+- Requires encryption for confidentiality
+
+📌 Implication:
+Even though data is encrypted, metadata and behavior can still be observed.
+
+---
+
+# 5. 5G-AKA (Authentication and Key Agreement Protocol)
+
+## 5.1 Definition
+
+**5G Authentication and Key Agreement (5G-AKA)** is a challenge–response protocol used in 5G networks to:
+
+- Authenticate the user (verify SIM legitimacy)
+- Authenticate the network (prevent fake base stations)
+- Establish session encryption keys
+
+---
+
+## 5.2 Pre-shared Secret
+
+Each SIM card contains:
+- Long-term secret key (K)
+
+The same key is stored securely in:
+- UDM (network database)
+
+📌 Important:
+- K is NEVER transmitted over the network
+
+---
+
+## 5.3 Full 5G-AKA Authentication Flow
+
+### Step 1: Initial Connection
+- The user device (UE – User Equipment) connects to the nearest gNB (base station).
+- Sends SUCI (encrypted identity).
+
+---
+
+### Step 2: Forwarding to Core Network
+- gNB forwards request to AMF.
+- AMF starts authentication procedure.
+
+---
+
+### Step 3: Authentication Request
+- AMF sends request to AUSF.
+
+---
+
+### Step 4: Subscriber Data Retrieval
+- AUSF requests data from UDM/ARPF.
+
+---
+
+### Step 5: Challenge Generation
+ARPF generates:
+- RAND (random challenge)
+- AUTN (authentication token)
+- XRES* (expected response)
+
+These are sent back through:
+UDM → AUSF → AMF → gNB → UE
+
+---
+
+### Step 6: UE Verification
+
+The phone (UE):
+
+- Receives **RAND** and **AUTN** from the network  
+- Uses its **secret key K** to verify the authenticity of the message  
+- Extracts the **SQN (Sequence Number)** from AUTN  
+- Recomputes the **Message Authentication Code (MAC)** using:
+  - Secret key **K**
+  - Received **RAND**
+  - Extracted **SQN**
+
+- Compares the computed MAC with the received MAC  
+- Checks that the SQN is fresh (not replayed or outdated)
+
+
+### ⚠️ Possible outcomes:
+
+- **MAC failure** → the message is not from a legitimate network  
+- **Synchronization failure (SQN mismatch)** → replay attack or desynchronization detected  
+- **Success** → the network is authenticated successfully and the UE continues the process  
+
+---
+
+### Step 7: Response
+- UE sends RES* back to network.
+
+---
+
+### Step 8: Verification
+- AUSF compares RES* with XRES*.
+
+If matching:
+- Authentication successful
+
+---
+
+### Step 9: Key Derivation
+Both sides derive session keys:
+- K_SEAF
+- K_AMF
+
+Used for encryption of data communication.
+
+---
+
+# 6. Why the System is Fast
+
+5G authentication is fast because:
+
+## 6.1 One-time authentication
+- Full 5G-AKA happens only during initial connection or re-registration.
+
+## 6.2 Session keys
+- After authentication, encryption keys are reused.
+
+## 6.3 Separation of planes
+- Control plane: authentication
+- User plane: data transfer
+
+## 6.4 Optimized infrastructure
+- High-speed fiber backbone
+- Distributed core functions
+
+---
+
+# 7. Mobility and Roaming
+
+When moving between areas:
+
+## Case 1: Same network
+- Only handover between gNBs
+- No full authentication
+
+## Case 2: New tracking area
+- Partial re-registration may occur
+
+## Case 3: Roaming (different operator)
+- Full authentication via home network
+
+Flow:
+UE → local network → home AUSF/UDM → response
+
+---
+
+# 8. Fake Base Station Threat Model
+
+An attacker can deploy a rogue gNB (fake base station):
+
+Capabilities:
+- Intercept radio messages
+- Force device to connect
+- Send authentication challenges
+
+Limitations:
+- Cannot access UDM
+- Cannot obtain secret key K
+- Cannot fully impersonate network
+
+---
+
+# 9. Privacy Attack Concept
+
+Even with encrypted identity (SUCI), attackers can:
+
+## 9.1 Observe behavioral differences:
+- Response type (failure categories)
+- Timing variations
+- Retry behavior
+
+## 9.2 Build fingerprints:
+Repeated observations allow attacker to create:
+
+> A behavioral signature of the device
+
+---
+
+# 10. Distinguishing Devices (Linkability)
+
+Attackers distinguish devices by:
+
+- Comparing authentication responses
+- Observing protocol behavior patterns
+- Testing multiple challenge inputs
+
+This results in:
+- Device A and Device B having distinguishable response patterns
+
+---
+
+# 11. Why This is a Vulnerability
+
+Even if identity is hidden:
+
+- Behavior leaks information
+- Protocol responses differ based on internal state
+
+This enables:
+- Tracking a device over time
+- Correlating sessions
+- Inferring user presence
+
+---
+
+# 12. Key Security Insight
+
+5G-AKA is:
+- Cryptographically strong for authentication
+- But not fully privacy-indistinguishable under active attack models
+
+---
+
+# 13. Final Summary
+
+5G networks use a distributed architecture involving radio access (gNB) and core functions (AMF, AUSF, UDM/ARPF) to securely authenticate users through the 5G-AKA protocol. Although the system prevents direct identity exposure using SUCI encryption and shared secret keys, attackers can still exploit observable behavior during authentication exchanges to distinguish and track devices over time.
+
+---
+
+# 14. Core Takeaway
+
+> Security ensures “you are authenticated correctly,”  
+> but privacy ensures “no one can recognize or track you.”
+
+5G-AKA achieves the first goal strongly, but the second goal is still partially vulnerable under advanced attack scenarios.
+
+---

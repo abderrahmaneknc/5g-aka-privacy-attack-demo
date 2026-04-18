@@ -1,0 +1,121 @@
+# FULL 5G-AKA AUTHENTICATION FLOW (SIMULATION)
+
+This document describes a simplified simulation of the  
+:contentReference[oaicite:0]{index=0} used in 5G networks.
+
+---
+
+## Step 1: Initial Connection (UE → gNB)
+
+The User Equipment (UE) connects to the nearest base station (gNB).
+
+- UE sends **SUCI (Subscription Concealed Identifier)**  
+- SUCI hides the real identity (IMSI) for privacy
+
+Example:
+- SUCI: `SUCI_user1`
+
+---
+
+## Step 2: Forwarding to Core Network
+
+- gNB forwards the request to AMF (Access and Mobility Function)
+- AMF initiates authentication procedure
+
+---
+
+## Step 3: Authentication Request
+
+- AMF requests authentication data from AUSF (Authentication Server Function)
+
+---
+
+## Step 4: Subscriber Data Retrieval
+
+- AUSF contacts UDM/ARPF
+- UDM retrieves the subscriber’s secret key **K**
+- A fresh authentication context is generated
+
+---
+
+## Step 5: Challenge Generation (Network Side)
+
+UDM/ARPF generates:
+
+- **RAND** → random challenge
+- **SQN** → sequence number (freshness protection)
+- **MAC** → Message Authentication Code
+- **XRES** → expected response
+
+The network constructs:
+
+- **AUTN = (SQN + MAC)**
+
+These values are sent back to the UE via:
+UDM → AUSF → AMF → gNB → UE
+
+---
+
+## Step 6: UE Verification
+
+The phone (UE):
+
+- Receives **RAND** and **AUTN**
+- Uses its secret key **K**
+- Extracts **SQN** from AUTN
+- Recomputes **MAC = f(K, RAND, SQN)**
+- Compares computed MAC with received MAC
+
+### Possible outcomes:
+
+- **MAC failure** → authentication rejected (fake network or tampering)
+- **Synchronization failure (SQN mismatch)** → replay or desynchronization detected
+- **Success** → network is authenticated successfully
+
+---
+
+## Step 7: Response Generation
+
+If authentication succeeds:
+
+- UE computes **RES*** using:
+  - secret key K
+  - RAND
+
+- UE sends RES* to the network
+
+---
+
+## Step 8: Network Verification
+
+- Network compares:
+  - RES* (from UE)
+  - XRES (expected value)
+
+### Result:
+- If RES* == XRES → Authentication SUCCESS
+- Else → Authentication FAIL
+
+---
+
+## Step 9: Session Key Derivation
+
+After successful authentication:
+
+Both UE and network derive session keys:
+
+- **K_SEAF**
+- **K_AMF**
+
+These keys are used to:
+- encrypt communication
+- protect signaling messages
+- secure user data
+
+---
+
+## Final Result
+
+- UE and network are mutually authenticated
+- Secure session is established
+- Communication can begin safely
