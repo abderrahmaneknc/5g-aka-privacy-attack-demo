@@ -12,18 +12,29 @@ app.use(express.static("public"));
 // ================= INIT =================
 const udm = new UDM();
 const userKey = "secret123";
-
 udm.registerUser("user1", userKey);
 
 const ue = new UE("user1", userKey);
 const fakeGnb = new FakeGNB();
 const attacker = new Attacker();
 
+// ================= STATE =================
 let session = {};
+let mitmSession = {};
+let ueLogs = [];
+let attackLogs = [];
+let lastAuthSnapshot = null;
 
-// ================= LOG STORAGE =================
-let ueLogs = []; // REAL + FAKE UE behavior (tagged)
-let attackLogs = []; // ONLY fake gNB behavior
+// ================= LOG HELPER =================
+function addLog(list, log) {
+  list.push({
+    event: log.event,
+    suci: log.suci || "",
+    source: log.source,
+    result: log.result || "N/A",
+    time: log.time,
+  });
+}
 
 // ======================================================
 // REAL AUTH FLOW
@@ -33,55 +44,40 @@ app.post("/step1", (req, res) => {
   const suci = ue.generateSUCI();
   session.suci = suci;
 
-  ueLogs.push({
-    suci,
+  addLog(ueLogs, {
     event: "UE_SENDS_SUCI",
+    suci,
     source: "REAL",
+    result: "OK",
     time: new Date().toLocaleTimeString(),
   });
 
-  res.json({ message: "UE → gNB: SUCI sent", SUCI: suci });
+  res.json({ SUCI: suci });
 });
 
 app.post("/step2", (req, res) => {
-  session.auth = udm.generateAuthData("user1");
+  const auth = udm.generateAuthData("user1");
+  session.auth = auth;
 
-  res.json({
-    message: "Network generated RAND + AUTN",
-    RAND: session.auth.RAND,
-    AUTN: session.auth.AUTN,
-  });
+  lastAuthSnapshot = {
+    RAND: auth.RAND,
+    AUTN: auth.AUTN,
+    capturedAt: new Date().toLocaleTimeString(),
+  };
+
+  attacker.captureAuth(auth);
+
+  res.json(auth);
 });
 
 app.post("/step3", (req, res) => {
   const result = ue.verifyAUTN(session.auth.RAND, session.auth.AUTN);
 
-  if (!result.ok) {
-    ueLogs.push({
-      suci: session.suci,
-      event: "AUTH_FAILED",
-      source: "REAL",
-      error: result.error,
-      time: new Date().toLocaleTimeString(),
-    });
-
-    return res.json({
-      message: "UE authentication FAILED",
-      error: result.error,
-    });
-  }
+  if (!result.ok) return res.json(result);
 
   session.res = ue.computeRES(session.auth.RAND);
 
-  ueLogs.push({
-    suci: session.suci,
-    event: "AUTH_SUCCESS",
-    source: "REAL",
-    time: new Date().toLocaleTimeString(),
-  });
-
   res.json({
-    message: "UE authenticated successfully",
     RES: session.res,
     MAC: session.auth.AUTN.mac,
   });
@@ -91,7 +87,6 @@ app.post("/step4", (req, res) => {
   const success = session.res === session.auth.XRES;
 
   res.json({
-    message: "Network verification",
     RES: session.res,
     XRES: session.auth.XRES,
     result: success ? "SUCCESS" : "FAILED",
@@ -99,18 +94,14 @@ app.post("/step4", (req, res) => {
 });
 
 app.post("/step5", (req, res) => {
-  const k_seaf = "K_SEAF_" + session.auth.RAND;
-  const k_amf = "K_AMF_" + k_seaf;
-
   res.json({
-    message: "Keys derived",
-    K_SEAF: k_seaf,
-    K_AMF: k_amf,
+    K_SEAF: "K_SEAF_" + session.auth.RAND,
+    K_AMF: "K_AMF_K_SEAF_" + session.auth.RAND,
   });
 });
 
 // ======================================================
-// REALISTIC ATTACK FLOW (CLEAN SEPARATION)
+// ATTACK FLOW
 // ======================================================
 
 app.post("/attack/realistic", (req, res) => {
@@ -119,118 +110,148 @@ app.post("/attack/realistic", (req, res) => {
   fakeGnb.interceptSUCI(suci);
   attacker.capture(suci);
 
-  // STEP 1: forced connection
-  attackLogs.push({
-    suci,
-    type: "ATTACK",
-    event: "FAKE_GNB_FORCED_CONNECTION",
-    time: new Date().toLocaleTimeString(),
-  });
-
-  // UE sees connection attempt (fake context only)
-  ueLogs.push({
-    suci,
-    event: "UE_SENDS_SUCI",
-    source: "FAKE_GNB",
-    time: new Date().toLocaleTimeString(),
-  });
-
-  // STEP 2: fake authentication
   const fakeAuth = fakeGnb.sendFakeChallenge();
 
-  attackLogs.push({
+  addLog(attackLogs, {
+    event: "FAKE_GNB_ATTACK",
     suci,
-    type: "ATTACK",
-    event: "FAKE_GNB_SENDS_AUTH",
-    rand: fakeAuth.RAND,
-    mac: fakeAuth.AUTN?.mac,
-    sqn: fakeAuth.AUTN?.sqn,
+    source: "MITM",
+    result: "CAPTURED",
     time: new Date().toLocaleTimeString(),
   });
 
-  // STEP 3: UE verification
   const result = ue.verifyAUTN(fakeAuth.RAND, fakeAuth.AUTN);
 
-  if (!result.ok) {
-    attackLogs.push({
-      suci,
-      type: "FAIL",
-      event: "UE_REJECTED_FAKE_NETWORK",
-      error: result.error,
-      time: new Date().toLocaleTimeString(),
-    });
-
-    ueLogs.push({
-      suci,
-      event: "AUTH_FAILED",
-      source: "FAKE_GNB",
-      error: result.error,
-      time: new Date().toLocaleTimeString(),
-    });
-  } else {
-    attackLogs.push({
-      suci,
-      type: "SUCCESS",
-      event: "UE_ACCEPTED_FAKE_NETWORK",
-      time: new Date().toLocaleTimeString(),
-    });
-
-    ueLogs.push({
-      suci,
-      event: "AUTH_SUCCESS",
-      source: "FAKE_GNB",
-      time: new Date().toLocaleTimeString(),
-    });
-  }
-
   res.json({
-    phase1: "Fake gNB forces connection",
-    phase2: "UE sends SUCI",
     SUCI: suci,
-    phase3: "Fake authentication sent",
     RAND: fakeAuth.RAND,
     AUTN: fakeAuth.AUTN,
     result: result.ok ? "UNEXPECTED SUCCESS" : "REJECTED",
-    error: result.ok ? null : result.error,
   });
 });
 
 // ======================================================
-// ATTACK LOGS + ANALYSIS
+// MITM FLOW
 // ======================================================
 
-app.get("/attack/logs", (req, res) => {
-  const summary = {};
+app.post("/mitm/step0", (req, res) => {
+  mitmSession = {};
+  attacker.reset();
 
-  for (const log of attackLogs) {
-    if (!summary[log.suci]) {
-      summary[log.suci] = {
-        attempts: 0,
-        success: 0,
-        failures: 0,
-      };
-    }
+  res.json({
+    status: "Fake gNB active",
+    signals: {
+      fake: { dbm: -62 },
+      real1: { dbm: -88 },
+      real2: { dbm: -91 },
+    },
+  });
+});
 
-    summary[log.suci].attempts++;
+app.post("/mitm/step1", (req, res) => {
+  const suci = ue.generateSUCI();
+  mitmSession.suci = suci;
 
-    if (log.type === "SUCCESS") summary[log.suci].success++;
-    if (log.type === "FAIL") summary[log.suci].failures++;
+  addLog(attackLogs, {
+    event: "SUCI_INTERCEPTED",
+    suci,
+    source: "MITM",
+    result: "CAPTURED",
+    time: new Date().toLocaleTimeString(),
+  });
+
+  res.json({ SUCI: suci });
+});
+
+app.post("/mitm/step2", (req, res) => {
+  if (!lastAuthSnapshot) {
+    return res.json({ error: "NO_CAPTURED_AUTH_AVAILABLE" });
+  }
+
+  mitmSession.auth = {
+    RAND: lastAuthSnapshot.RAND,
+    AUTN: lastAuthSnapshot.AUTN,
+  };
+
+  res.json(mitmSession.auth);
+});
+
+app.post("/mitm/step3", (req, res) => {
+  const auth = mitmSession.auth;
+
+  const result = ue.verifyAUTN(auth.RAND, auth.AUTN);
+
+  if (result.ok) {
+    mitmSession.res = ue.computeRES(auth.RAND);
   }
 
   res.json({
-    trackedDevices: attackLogs,
-    analysis: summary,
+    mac_check: result.mac_ok ? "PASS" : "FAIL",
+    sqn_check: result.sqn_ok ? "VALID" : "REPLAY",
+    RES: mitmSession.res || null,
+  });
+});
+
+app.post("/mitm/step4", (req, res) => {
+  const auth = mitmSession.auth;
+
+  mitmSession.replayAttempt = (mitmSession.replayAttempt || 0) + 1;
+
+  res.json({
+    replayed_RAND: auth.RAND,
+    replayed_AUTN: auth.AUTN,
+    replay_attempt: mitmSession.replayAttempt,
+  });
+});
+
+app.post("/mitm/step5", (req, res) => {
+  const auth = mitmSession.auth;
+
+  const result = ue.verifyAUTN(auth.RAND, auth.AUTN);
+
+  res.json({
+    mac_check: "PASS",
+    sqn_check: result.ok ? "FRESH" : "REPLAY BLOCKED",
+    attack_result: result.ok ? "SHOULD NOT HAPPEN" : "ATTACK BLOCKED",
   });
 });
 
 // ======================================================
-// UE LOGS
+// LOG ENDPOINTS
 // ======================================================
 
 app.get("/ue/logs", (req, res) => {
-  res.json(ueLogs);
+  const formatted = ueLogs.map(
+    (l) => `${l.event} | ${l.suci} | ${l.source} | ${l.result} | ${l.time}`,
+  );
+
+  res.json({ logs: formatted });
 });
 
+app.get("/attack/logs", (req, res) => {
+  const formatted = attackLogs.map(
+    (l) => `${l.event} | ${l.suci} | ${l.source} | ${l.result} | ${l.time}`,
+  );
+
+  res.json({ logs: formatted });
+});
+
+app.get("/logs/all", (req, res) => {
+  const merged = [...ueLogs, ...attackLogs];
+
+  const formatted = merged.map(
+    (l) => `${l.event} | ${l.suci} | ${l.source} | ${l.result} | ${l.time}`,
+  );
+
+  res.json({ logs: formatted });
+});
+app.get("/mitm/captured", (req, res) => {
+  res.json({
+    suci: mitmSession.suci || session.suci || "NOT CAPTURED",
+    captured_auth: lastAuthSnapshot || null,
+    timeline: attackLogs,
+  });
+});
 // ======================================================
 app.listen(3000, () => {
   console.log("Running on http://localhost:3000");

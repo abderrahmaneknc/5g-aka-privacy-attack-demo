@@ -16,7 +16,7 @@
       <!-- NAVIGATION -->
       <div class="nav">
         <button onclick="showPage('auth')">📱 Authentication</button>
-        <button onclick="showPage('attack')">📡 Attack Simulation</button>
+        <button onclick="showPage('mitm')">🕵️ MITM Attack</button>
         <button onclick="showPage('ue')">⚠️ UE Behavior</button>
       </div>
 
@@ -32,23 +32,39 @@
       <!-- ATTACK PAGE -->
       <div id="attackPage" class="page hidden">
         <h2>📡 Fake gNB Attack</h2>
-
         <div class="button-group">
           <button class="btn danger" onclick="realisticAttack()">
             Simulate Attack
           </button>
           <button class="btn" onclick="showAttackLogs()">Show Tracking</button>
         </div>
-
         <pre id="attackLog" class="log"></pre>
+      </div>
+
+      <!-- MITM PAGE -->
+      <div id="mitmPage" class="page hidden">
+        <h2>🕵️ MITM Attack</h2>
+        <div class="button-group">
+          <button class="btn danger" onclick="mitmAttack()">
+            Simulate MITM
+          </button>
+          <button class="btn" onclick="showCapturedData()">
+            Show Captured Data
+          </button>
+          <button
+            class="btn"
+            onclick="document.getElementById('mitmLog').innerText = ''"
+          >
+            Clear
+          </button>
+        </div>
+        <pre id="mitmLog" class="log"></pre>
       </div>
 
       <!-- UE PAGE -->
       <div id="uePage" class="page hidden">
         <h2>⚠️ UE Behavior</h2>
-
         <button class="btn" onclick="showUELogs()">Show UE Logs</button>
-
         <pre id="ueLog" class="log"></pre>
       </div>
     </div>

@@ -1,42 +1,44 @@
 class Attacker {
   constructor() {
+    this.capturedAuth = null;
+    this.replayAttempts = 0;
     this.logs = [];
   }
 
-  capture(suci, type) {
-    if (!type) type = "ATTACK";
+  captureAuth(auth) {
+    this.capturedAuth = {
+      RAND: auth.RAND,
+      AUTN: auth.AUTN,
+      capturedAt: new Date().toLocaleTimeString(),
+    };
+  }
 
+  getCapturedAuth() {
+    return this.capturedAuth;
+  }
+
+  buildReplayPayload() {
+    this.replayAttempts++;
+
+    if (!this.capturedAuth) return null;
+
+    return {
+      RAND: this.capturedAuth.RAND,
+      AUTN: this.capturedAuth.AUTN,
+      replayAttempt: this.replayAttempts,
+    };
+  }
+
+  capture(suci) {
     this.logs.push({
       suci,
-      type,
       time: new Date().toLocaleTimeString(),
     });
   }
 
-  analyze() {
-    const result = {};
-
-    for (const log of this.logs) {
-      if (!log.type) continue;
-
-      if (!result[log.suci]) {
-        result[log.suci] = {
-          attempts: 0,
-          success: 0,
-          failures: 0,
-        };
-      }
-
-      if (log.type === "ATTACK") result[log.suci].attempts++;
-      if (log.type === "SUCCESS") result[log.suci].success++;
-      if (log.type === "FAIL") result[log.suci].failures++;
-    }
-
-    return result;
-  }
-
-  showTracking() {
-    return this.logs;
+  reset() {
+    this.capturedAuth = null;
+    this.replayAttempts = 0;
   }
 }
 
