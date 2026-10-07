@@ -1,275 +1,69 @@
-# 🔐 5G-AKA Security Simulator
+# 5G-AKA Privacy & Authentication Attack Demo
 
-A full-stack simulation of the **5G Authentication and Key Agreement (5G-AKA)** protocol, including normal authentication flow, fake gNB attack simulation, and UE (User Equipment) behavior tracking.
+Educational full-stack simulator for **5G Authentication and Key Agreement (5G-AKA)**. It walks through a legitimate authentication run, simulates a **fake gNB (rogue base station)**, and demonstrates **privacy-related threats** such as SUCI interception, MAC verification failure, and **replay** of captured challenges.
 
-This project is designed for educational purposes to help understand how 5G authentication works and how attacks are detected.
+> Simplified cryptography for learning — not a production 5G implementation.
 
----
+## Features
 
-## 📌 Features
+- **End-to-end 5G-AKA flow**: SUCI → RAND/AUTN → UE verification → RES/XRES check → session keys (`K_SEAF`, `K_AMF`)
+- **Fake gNB attack**: forced attach, invalid AUTN, UE rejection (MAC / sync failures)
+- **Attacker module**: capture authentication vectors and attempt replay
+- **Live UI**: authentication, attack, and UE behavior tabs with structured logs
+- **Per-subscriber tracking**: attempt counts, success/failure statistics
 
-### ✅ Full 5G-AKA Authentication Flow
+## Tech stack
 
-* UE generates SUCI
-* Network generates RAND + AUTN
-* UE verifies AUTN
-* UE computes RES
-* Network compares RES vs XRES
-* Session keys are derived (K_SEAF, K_AMF)
+- Node.js, Express
+- Vanilla JavaScript (simulation modules + browser UI)
 
-### ⚠️ Fake gNB Attack Simulation
-
-* Fake base station forces connection
-* Intercepts SUCI
-* Sends invalid authentication challenge
-* UE detects:
-
-  * MAC Failure
-  * Replay / Sync Failure
-
-### 📊 Attack Tracking & Analysis
-
-* Logs all attack attempts
-* Tracks per device (SUCI)
-* Displays:
-
-  * Number of attempts
-  * Success count
-  * Failure count
-
-### 📱 UE Behavior Monitoring
-
-* Shows how UE reacts:
-
-  * Normal authentication
-  * Attack rejection
-* Distinguishes between:
-
-  * REAL network
-  * FAKE gNB
-
----
-
-## 🧱 Project Structure
+## Project structure
 
 ```
-5g-aka-simulation/
-│
-├── public/
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
-│
-├── simulation/
-│   ├── ue.js
-│   ├── udm.js
-│   ├── fakeGnb.js
-│   └── attacker.js
-│
-├── server.js
-├── package.json
-└── README.md
+├── public/           # Web UI (index.html, app.js, style.css)
+├── simulation/       # UE, gNB, AMF, AUSF, UDM, fake gNB, attacker
+├── docs/             # Supporting notes
+├── server.js         # API + static hosting
+└── package.json
 ```
 
----
+## Quick start
 
-## ⚙️ Technologies Used
-
-* Node.js
-* Express.js
-* Vanilla JavaScript
-* HTML / CSS
-
----
-
-## 🚀 Installation & Run
-
-### 1. Clone the repository
-
-```
-git clone https://github.com/your-username/5g-aka-simulation.git
-cd 5g-aka-simulation
-```
-
-### 2. Install dependencies
-
-```
+```bash
+git clone https://github.com/abderrahmaneknc/5g-aka-privacy-attack-demo.git
+cd 5g-aka-privacy-attack-demo
 npm install
+npm start
 ```
 
-### 3. Run the server
+Open **http://localhost:3000** in your browser.
 
-```
-node server.js
-```
+## Using the demo
 
-### 4. Open in browser
+1. **Authentication** — run the normal 5G-AKA procedure and inspect derived keys.
+2. **Attack** — trigger a fake gNB scenario, then open tracking to review captured SUCI and failures.
+3. **UE behavior** — compare reactions from the real network vs. the rogue base station.
 
-```
-http://localhost:3000
-```
+## Key concepts
 
----
+| Term | Meaning |
+|------|---------|
+| SUCI | Concealed subscriber identity sent over the air |
+| AUTN | Network authentication token (includes SQN, MAC) |
+| RES / XRES | UE response vs. network expected value |
+| Fake gNB | Rogue base station attempting impersonation |
+| Replay | Reusing a previously captured RAND/AUTN pair |
 
-## 🧪 How to Use
+## Learning goals
 
-### 📱 Authentication Tab
+- Understand how 5G-AKA binds the UE to the serving network
+- See why MAC and sequence-number checks block many over-the-air attacks
+- Relate authentication failures to privacy and tracking risks in rogue-cell scenarios
 
-Click:
+## Author
 
-```
-Start Authentication
-```
+**Kennouche Abderrahmane**
 
-You will see:
+## License
 
-* SUCI generation
-* RAND & AUTN
-* Verification process
-* Key derivation
-
----
-
-### 📡 Attack Tab
-
-Click:
-
-```
-Simulate Attack
-```
-
-Then:
-
-```
-Show Tracking
-```
-
-You will see:
-
-* Fake gNB activity
-* UE rejection
-* Attack logs
-* Analysis
-
----
-
-### ⚠️ UE Behavior Tab
-
-Click:
-
-```
-Show UE Logs
-```
-
-You will see:
-
-* UE reactions
-* Authentication success/failure
-* Source (REAL or FAKE)
-
----
-
-## 🔍 Example Outputs
-
-### ✅ Normal Authentication
-
-```
----- FULL 5G-AKA FLOW ----
-UE → gNB: SUCI sent
-SUCI: SUCI_user1
-Network generated RAND + AUTN
-RAND: xxxx
-AUTN SQN: 2
-AUTN MAC: xxxx
-checking AUTN...
-UE authenticated successfully
-MAC*: xxxx
-RES*: xxxx
-Network verifying RES* and XRES ...
-RES: xxxx
-XRES: xxxx
-SUCCESS
-Session keys derived successfully
-K_SEAF: ...
-K_AMF: ...
-```
-
----
-
-### ❌ Attack Simulation
-
-```
----- REALISTIC FAKE GNB ATTACK ----
-Fake gNB forces radio connection
-UE sends SUCI
-Fake authentication attempt
-RAND: xxxx
-AUTN MAC: fake_xxxx
-UE Verification...
-Result: REJECTED
-UE ERROR: MAC FAILURE
-```
-
----
-
-### 📊 Tracking Analysis
-
-```
-SUCI_user1
-Attempts: 6
-Success: 0
-Failures: 2
-```
-
----
-
-## 🧠 Key Concepts
-
-| Concept  | Description                    |
-| -------- | ------------------------------ |
-| SUCI     | Concealed Subscriber Identity  |
-| RAND     | Random challenge               |
-| AUTN     | Authentication token           |
-| RES      | Response from UE               |
-| XRES     | Expected response from network |
-| K_SEAF   | Session key                    |
-| Fake gNB | Malicious base station         |
-
----
-
-## ⚠️ Notes
-
-* This is a simulation, not a real 5G system
-* Cryptography is simplified
-* Attacker success is intentionally rare
-
----
-
-## 🎯 Learning Objectives
-
-* Understand 5G authentication
-* Understand UE verification process
-* Learn how fake base station attacks work
-* Understand MAC and SQN roles
-* Detect replay attacks
-
----
-
-## 📌 Future Improvements
-
-* Graph visualization
-* Real-time packet animation
-* Stronger cryptography
-* Multi-user simulation
-
----
-
-## 👨‍💻 Author
-
-Kennouche Abderrahmane
-
----
-
-## 📜 License
-
-Educational use only
+Educational use only.
